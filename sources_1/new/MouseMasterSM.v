@@ -38,8 +38,54 @@ module MouseMasterSM(
     output [7:0] MOUSE_STATUS,
     output SEND_INTERRUPT
 );
+
     
+    //////////////////////////////////////////////////////////////////////////////////
+    //
     // Main state machine
-    // Set
-    
+    //
+    // Setup sequence
+    // 1) Send FF -- Reset
+    // 2) Read FA -- Mouse acknowledge
+    // 3) Read AA -- Self-test pass
+    // 4) Read 00 -- Mouse ID
+    // 5) Send F4 -- Start transmitting 
+    // 6) Read FA -- Mouse acknowledge (F4 in this case, parity check skipped)
+    //
+    // Setup sequence finished, flag read enable
+    // Host read mouse information 3 bytes at a time
+    // S1) Wait for first read. Save to Status upon arrival. Goto S2.
+    // S2) Wait for second read. Save to DX upon arrival. Goto S3.
+    // S3) Wait for third read. Save to DY upon arrival. Goto S1.
+    // Send interrupt
+    //
+    //////////////////////////////////////////////////////////////////////////////////
+
+
+    // State control
+    reg [3:0] curr_state;
+    reg [3:0] next_state;
+    reg [23:0] curr_ctr;
+    reg [23:0] next_ctr;
+
+    // Transmitter control
+    reg curr_sendByte;
+    reg next_sendByte;
+    reg [7:0] curr_byteToSend;
+    reg [7:0] next_byteToSend;
+
+    // Receiver control
+    reg curr_readEnable;
+    reg next_readEnable;
+
+    // Data registers
+    reg [7:0] curr_status;
+    reg [7:0] next_status;
+    reg [7:0] curr_DX;
+    reg [7:0] next_DX;
+    reg [7:0] curr_DY;
+    reg [7:0] next_DY;
+    reg [7:0] curr_sendInterrupt;
+    reg [7:0] next_sendInterrupt;
+
 endmodule
