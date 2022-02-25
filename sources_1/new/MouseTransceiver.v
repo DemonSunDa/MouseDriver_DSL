@@ -28,9 +28,12 @@ module MouseTransceiver (
     inout CLK_MOUSE,
     inout DATA_MOUSE,
     // Mouse Data Information
-    output [3:0] MouseStatus,
-    output [7:0] MouseX,
-    output [7:0] MouseY
+    // output [3:0] MouseStatus,
+    // output [7:0] MouseX,
+    // output [7:0] MouseY
+    output [7:0] MouseStatusByte,
+    output [7:0] MouseDXByte,
+    output [7:0] MouseDYByte
 );
 
 
@@ -117,9 +120,12 @@ module MouseTransceiver (
     );
 
 
-    wire [7:0] MouseStatusRaw;
-    wire [7:0] MouseDxRaw;
-    wire [7:0] MouseDyRaw;
+    // wire [7:0] MouseStatusRaw;
+    // wire [7:0] MouseDxRaw;
+    // wire [7:0] MouseDyRaw;
+    reg [7:0] MouseStatusRaw;
+    reg [7:0] MouseDxRaw;
+    reg [7:0] MouseDyRaw;
     wire SendInterrupt;
     MouseMasterSM MSM (
         // Standard Inputs
@@ -142,5 +148,8 @@ module MouseTransceiver (
     );
 
 
-    
+    assign MouseStatusByte = MouseStatusRaw;
+    assign MouseDXByte = MouseDxRaw;
+    assign MouseDYByte = MouseDyRaw;
+
 endmodule
