@@ -152,9 +152,16 @@ module MouseTransmitter (
                 end
             end
             4'b1001 : begin // wait device to release data line and clock line
-
+                next_state = 4'b0000;
+            end
             default : begin
-                
+                next_state = 4'b0000;
+                next_MSClkOutWE = 1'b0;
+                next_MSDataOut = 1'b0;
+                next_MSDataOutWE = 1'b0;
+                next_sendCtr = 0;
+                next_byteSent = 1'b0;
+                next_byteToSend = 0;
             end
         endcase
 
