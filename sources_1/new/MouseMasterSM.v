@@ -248,8 +248,8 @@ module MouseMasterSM(
             end
             4'b1010 : begin
                 if (BYTE_READY & (BYTE_ERROR_CODE == 2'b00)) begin
-                    next_state = 4'b1010;
-                    next_status = BYTE_READ;
+                    next_state = 4'b1011;
+                    next_DX = BYTE_READ;
 
                     next_ctr = curr_ctr;
                     next_readEnable = curr_readEnable;
@@ -264,8 +264,8 @@ module MouseMasterSM(
             end
             4'b1011 : begin
                 if (BYTE_READY & (BYTE_ERROR_CODE == 2'b00)) begin
-                    next_state = 4'b1010;
-                    next_status = BYTE_READ;
+                    next_state = 4'b1100;
+                    next_DY = BYTE_READ;
 
                     next_ctr = curr_ctr;
                     next_readEnable = curr_readEnable;
@@ -292,6 +292,7 @@ module MouseMasterSM(
                 next_DX = 8'h00;
                 next_DY = 8'h00;
                 next_sendInterrupt = 1'b0;
+            end
         endcase
     end
 

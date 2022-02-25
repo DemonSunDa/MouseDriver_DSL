@@ -3,9 +3,9 @@
 // Company: 
 // Engineer: 
 // 
-// Create Date: 24.02.2022 20:40:01
+// Create Date: 25.02.2022 00:16:27
 // Design Name: 
-// Module Name: TOP
+// Module Name: MouseReceiver
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module TOP(
+module MouseReceiver(
 
     );
 endmodule
