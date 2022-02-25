@@ -21,6 +21,7 @@
 
 
 module MouseMasterSM(
+    // Standard Inputs
     input CLK,
     input RESET,
     // Transmitter Control
@@ -130,7 +131,7 @@ module MouseMasterSM(
         next_DY = curr_DY;
         next_sendInterrupt = 1'b0;
 
-        case(curr_state)
+        case (curr_state)
         // Setup sequence
             4'b0000 : begin // wait for 10ms before initialisation
                 if (curr_ctr == 1000000) begin
