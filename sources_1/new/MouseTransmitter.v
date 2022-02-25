@@ -105,7 +105,7 @@ module MouseTransmitter (
                     next_state = 4'b0001;
                     next_sendCtr = 0;
                 end
-                else
+                else begin
                     next_sendCtr = curr_sendCtr + 1;
                 end
                 next_MSClkOutWE = 1'b1;
@@ -164,7 +164,7 @@ module MouseTransmitter (
                 next_byteToSend = 0;
             end
         endcase
-
+    end
 
     assign CLK_MOUSE_OUT_EN = curr_MSClkOutWE;
     assign DATA_MOUSE_OUT = curr_MSDataOut;
