@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module MouseMasterSM(
+module MouseMasterSM (
     // Standard Inputs
     input CLK,
     input RESET,

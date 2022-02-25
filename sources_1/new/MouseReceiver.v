@@ -20,7 +20,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module MouseReceiver(
+module MouseReceiver (
     // Standard Inputs
     input CLK,
     input RESET,
@@ -36,21 +36,21 @@ module MouseReceiver(
 
 
     reg CLK_MOUSE_SYNC; // sync mouse clock
-    always @(posedge CLK or posedge RESET) begin
+    always @(posedge CLK) begin
         CLK_MOUSE_SYNC <= CLK_MOUSE_IN;
     end
 
 
     reg [2:0] curr_state;
     reg [2:0] next_state;
-    reg [7:0] curr_MSCodeShiftReg;
-    reg [7:0] next_MSCodeShiftReg;
+    reg [7:0] curr_MSShiftReg;
+    reg [7:0] next_MSShiftReg;
     reg [3:0] curr_bitCtr;
     reg [3:0] next_bitCtr;
     reg curr_byteReceived;
     reg next_byteReceived;
-    reg [1:0] curr_MSCodeStatus;
-    reg [1:0] next_MSCodeStatus;
+    reg [1:0] curr_MSStatus;
+    reg [1:0] next_MSStatus;
     reg [15:0] curr_timeoutCtr;
     reg [15:0] next_timeoutCtr;
 
@@ -59,18 +59,18 @@ module MouseReceiver(
     always @(posedge CLK or posedge RESET) begin
         if (RESET) begin
             curr_state <= 3'b000;
-            curr_MSCodeShiftReg <= 8'h00;
+            curr_MSShiftReg <= 8'h00;
             curr_bitCtr <= 0;
             curr_byteReceived <= 1'b0;
-            curr_MSCodeStatus <= 2'b00;
+            curr_MSStatus <= 2'b00;
             curr_timeoutCtr <= 0;
         end
         else begin
             curr_state <= next_state;
-            curr_MSCodeShiftReg <= next_MSCodeShiftReg;
+            curr_MSShiftReg <= next_MSShiftReg;
             curr_bitCtr <= next_bitCtr;
             curr_byteReceived <= next_byteReceived;
-            curr_MSCodeStatus <= next_MSCodeStatus;
+            curr_MSStatus <= next_MSStatus;
             curr_timeoutCtr <= next_timeoutCtr;;
         end
     end
@@ -78,17 +78,17 @@ module MouseReceiver(
     // Combinational
     always @(*) begin
         next_state <= curr_state;
-        next_MSCodeShiftReg <= curr_MSCodeShiftReg;
+        next_MSShiftReg <= curr_MSShiftReg;
         next_bitCtr <= curr_bitCtr;
         next_byteReceived <= 1'b0;
-        next_MSCodeStatus <= curr_MSCodeStatus;
+        next_MSStatus <= curr_MSStatus;
         next_timeoutCtr <= curr_timeoutCtr + 1;
 
         case (curr_state)
             3'b000 : begin
                 if (READ_ENABLE & CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & ~DATA_MOUSE_IN) begin
                     next_state = 3'b001;
-                    next_MSCodeStatus = 2'b00;
+                    next_MSStatus = 2'b00;
                 end
                 next_bitCtr = 0;
             end
@@ -101,8 +101,8 @@ module MouseReceiver(
                     next_bitCtr = 0;
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
-                    next_MSCodeShiftReg[6:0] = curr_MSCodeShiftReg[7:1];
-                    next_MSCodeShiftReg[7] = DATA_MOUSE_IN;
+                    next_MSShiftReg[6:0] = curr_MSShiftReg[7:1];
+                    next_MSShiftReg[7] = DATA_MOUSE_IN;
                     next_bitCtr = curr_bitCtr + 1;
                     next_timeoutCtr = 0;
                 end
@@ -112,8 +112,8 @@ module MouseReceiver(
                     next_state = 3'b000;
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
-                    if (DATA_MOUSE_IN != (~^curr_MSCodeShiftReg[7:0])) begin // parity bit error
-                        next_MSCodeStatus[0] = 1'b1;
+                    if (DATA_MOUSE_IN != (~^curr_MSShiftReg[7:0])) begin // parity bit error
+                        next_MSStatus[0] = 1'b1;
                     end
                     next_bitCtr = 0;
                     next_state = 3'b011;
@@ -126,7 +126,7 @@ module MouseReceiver(
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
                     if (~DATA_MOUSE_IN) begin
-                        next_MSCodeStatus[1] = 1'b1;
+                        next_MSStatus[1] = 1'b1;
                     end
                     next_bitCtr = 0;
                     next_state = 3'b100;
@@ -140,10 +140,10 @@ module MouseReceiver(
             end
             default: begin
                 next_state = 3'b000;
-                next_MSCodeShiftReg = 8'h00;
+                next_MSShiftReg = 8'h00;
                 next_bitCtr = 0;
                 next_byteReceived = 1'b0;
-                next_MSCodeStatus = 2'b00;
+                next_MSStatus = 2'b00;
                 next_timeoutCtr = 0;
             end
         endcase
@@ -151,7 +151,7 @@ module MouseReceiver(
 
 
     assign BYTE_READY = curr_byteReceived;
-    assign BYTE_READ = curr_MSCodeShiftReg;
-    assign BYTE_ERROR_CODE = curr_MSCodeStatus;
+    assign BYTE_READ = curr_MSShiftReg;
+    assign BYTE_ERROR_CODE = curr_MSStatus;
 
 endmodule
