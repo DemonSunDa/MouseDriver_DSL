@@ -31,9 +31,9 @@ module MouseTransceiver (
     // output [3:0] MouseStatus,
     // output [7:0] MouseX,
     // output [7:0] MouseY
-    output [7:0] MouseStatusByte,
-    output [7:0] MouseDXByte,
-    output [7:0] MouseDYByte
+
+    output DISP_SEL_OUT,
+    output DISP_OUT
 );
 
 
@@ -143,15 +143,66 @@ module MouseTransceiver (
     );
 
 
-    assign MouseStatusByte = MouseStatusRaw;
-    assign MouseDXByte = MouseDxRaw;
-    assign MouseDYByte = MouseDyRaw;
+    reg [1:0] segSelIn;
+    reg [3:0] dotBinIn;
+    wire [3:0] segSelOut;
+    wire [7:0] hexOut;
+
+    wire trig_1kHz;
+    wire [16:0] ctr_1kHz;
+    wire trig_strobe;
+    wire [1:0] ctr_strobe;
+
+    Generic_counter # (
+        .CTR_WIDTH(17),
+        .CTR_MAX(99999)
+    )
+    Ctr1kHz (
+        .CLK(CLK),
+        .RESET(RESET),
+        .ENABLE(1'b1),
+        .OUT_TRIG(trig_1kHz),
+        .OUT_CTR(ctr_1kHz)
+    );
+
+    Generic_counter # (
+        .CTR_WIDTH(2),
+        .CTR_MAX(3)
+    )
+    CtrStrobe (
+        .CLK(CLK),
+        .RESET(RESET),
+        .ENABLE(trig_1kHz),
+        .OUT_TRIG(trig_strobe),
+        .OUT_CTR(ctr_strobe)
+    );
+
+    Mux4bit5 Multiplexer (
+        .CONTROL(ctr_strobe),
+        .IN0({1'b1, MouseDyRaw[3:0]}),
+        .IN1({1'b1, MouseDyRaw[7:4]}),
+        .IN2({1'b0, MouseDxRaw[3:0]}),
+        .IN3({1'b1, MouseDxRaw[7:4]}),
+        .OUT(dotBinIn)
+    );
+
+    Seg7Decoder Disp (
+        .SEG_SELECT_IN(ctr_strobe),
+        .BIN_IN(dotBinIn[3:0]),
+        .DOT_IN(dotBinIn[4]),
+        .SEG_SELECT_OUT(segSelOut),
+        .HEX_OUT(hexOut)
+    );
+
+
+    assign DISP_SEL_OUT = segSelOut;
+    assign DISP_OUT = hexOut;
 
 endmodule
 
 
 
-module seg7decoder(
+module Seg7Decoder (
     input [1:0] SEG_SELECT_IN,
     input [3:0] BIN_IN,
     input DOT_IN,
@@ -159,8 +210,8 @@ module seg7decoder(
     output reg [7:0] HEX_OUT
 );
 
-    always@(BIN_IN) begin
-        case(BIN_IN)
+    always @(BIN_IN) begin
+        case (BIN_IN)
             4'b0000:    HEX_OUT[6:0] <= 7'b1000000; // 0
             4'b0001:    HEX_OUT[6:0] <= 7'b1111001; // 1
             4'b0010:    HEX_OUT[6:0] <= 7'b0100100; // 2
@@ -185,17 +236,100 @@ module seg7decoder(
         endcase
     end
 
-    always@(DOT_IN) begin
+    always @(DOT_IN) begin
         HEX_OUT[7] <= ~DOT_IN;
     end
 
-    always@(SEG_SELECT_IN) begin
-        case(SEG_SELECT_IN)
+    always @(SEG_SELECT_IN) begin
+        case (SEG_SELECT_IN)
             2'b00:      SEG_SELECT_OUT <= 4'b1110; // rightmost
             2'b01:      SEG_SELECT_OUT <= 4'b1101;
             2'b10:      SEG_SELECT_OUT <= 4'b1011;
             2'b11:      SEG_SELECT_OUT <= 4'b0111; // leftmost
             default:    SEG_SELECT_OUT <= 4'b1111; // all off
+        endcase
+    end
+
+endmodule
+
+
+
+module Generic_counter # (
+    parameter CTR_WIDTH = 4,
+    parameter CTR_MAX = 9
+)
+(
+    input CLK,
+    input RESET,
+    input ENABLE,
+    output OUT_TRIG,
+    output [(CTR_WIDTH - 1):0] OUT_CTR
+);
+    
+    reg [(CTR_WIDTH - 1):0] tp_ctr;
+    reg tp_trig;
+    
+    always @(posedge CLK) begin
+        if (RESET) begin
+            tp_ctr <= 0;
+        end
+        else begin
+            if (ENABLE) begin
+                if (tp_ctr == CTR_MAX) begin
+                    tp_ctr <= 0;
+                end
+                else begin
+                    tp_ctr <= tp_ctr + 1;
+                end
+            end
+            else begin
+                tp_ctr <= tp_ctr;
+            end
+        end
+    end
+    
+    always @(posedge CLK) begin
+        if (RESET) begin
+            tp_trig <= 0;
+        end
+        else begin
+            if (ENABLE) begin
+                if (tp_ctr == CTR_MAX) begin
+                    tp_trig <= 1;
+                end
+                else begin
+                    tp_trig <= 0;
+                end
+            end
+            else begin
+                tp_trig <= 0;
+            end
+        end
+    end
+    
+    assign OUT_CTR = tp_ctr;
+    assign OUT_TRIG = tp_trig;
+
+endmodule
+
+
+
+module Mux4bit5 (
+    input [1:0] CONTROL,
+    input [4:0] IN0,
+    input [4:0] IN1,
+    input [4:0] IN2,
+    input [4:0] IN3,
+    output reg [4:0] OUT
+);
+
+    always @(CONTROL or IN0 or IN1 or IN2 or IN3) begin
+        case (CONTROL)
+            2'b00       :   OUT <= IN0;
+            2'b01       :   OUT <= IN1;
+            2'b10       :   OUT <= IN2;
+            2'b11       :   OUT <= IN3;
+            default     :   OUT <= 5'b00000;
         endcase
     end
 
