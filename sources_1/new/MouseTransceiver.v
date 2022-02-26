@@ -118,12 +118,9 @@ module MouseTransceiver (
     );
 
 
-    // wire [7:0] MouseStatusRaw;
-    // wire [7:0] MouseDxRaw;
-    // wire [7:0] MouseDyRaw;
-    reg [7:0] MouseStatusRaw;
-    reg [7:0] MouseDxRaw;
-    reg [7:0] MouseDyRaw;
+    wire [7:0] MouseStatusRaw;
+    wire [7:0] MouseDxRaw;
+    wire [7:0] MouseDyRaw;
     wire SendInterrupt;
     MouseMasterSM MSM (
         // Standard Inputs
