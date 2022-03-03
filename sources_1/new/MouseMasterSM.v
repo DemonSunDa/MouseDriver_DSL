@@ -62,7 +62,7 @@ module MouseMasterSM (
     // S2) Wait for second read. Save to DX upon arrival. Goto S3.
     // S3) Wait for third read. Save to DY upon arrival. Goto S1.
     // Send interrupt
-    //Any error during this sequence, restart initiallisation
+    // Any error during this sequence, restart initiallisation
     //
     //////////////////////////////////////////////////////////////////////////////////
 
