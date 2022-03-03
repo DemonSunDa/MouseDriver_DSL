@@ -125,7 +125,7 @@ module MouseReceiver (
                     next_state = 3'b000;
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
-                    if (~DATA_MOUSE_IN) begin
+                    if (DATA_MOUSE_IN) begin
                         next_MSStatus[1] = 1'b1;
                     end
                     next_bitCtr = 0;
@@ -134,9 +134,14 @@ module MouseReceiver (
                 end
             end
             3'b100 : begin
-                next_byteReceived = 1'b1;
-                next_state = 3'b000;
-                next_timeoutCtr = 0;
+                if (curr_timeoutCtr == 100000) begin
+                    next_state = 3'b000;
+                end
+                else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & DATA_MOUSE_IN) begin
+                    next_byteReceived = 1'b1;
+                    next_state = 3'b000;
+                    next_timeoutCtr = 0;
+                end
             end
             default: begin
                 next_state = 3'b000;

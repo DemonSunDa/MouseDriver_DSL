@@ -137,21 +137,26 @@ module MouseTransmitter (
                 end
                 next_MSDataOut = ~^curr_byteToSend[7:0];
             end
-            4'b0110 : begin // release data line
+            4'b0110 : begin // end bit
+                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & DATA_MOUSE_IN) begin
+                    next_state = 4'b0111;
+                end
+            end
+            4'b0111 : begin // release data line
                 next_state = 4'b0111;
                 next_MSDataOutWE = 1'b0;
             end
-            4'b0111 : begin // wait device to set data line low
+            4'b1000 : begin // wait device to set data line low
                 if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & ~DATA_MOUSE_IN) begin
                     next_state = 4'b1000;
                 end
             end
-            4'b1000 : begin // wait device to set clock line low
+            4'b1001 : begin // wait device to set clock line low
                 if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & ~CLK_MOUSE_IN) begin
                     next_state = 4'b1001;
                 end
             end
-            4'b1001 : begin // wait device to release data line and clock line
+            4'b1010 : begin // wait device to release data line and clock line
                 next_state = 4'b0000;
             end
             default : begin
