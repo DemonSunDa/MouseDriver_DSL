@@ -32,8 +32,8 @@ module MouseTransceiver (
     // output [7:0] MouseX,
     // output [7:0] MouseY
 
-    output DISP_SEL_OUT,
-    output DISP_OUT
+    output [3:0] DISP_SEL_OUT,
+    output [7:0] DISP_OUT
 );
 
 
@@ -122,6 +122,7 @@ module MouseTransceiver (
     wire [7:0] MouseDxRaw;
     wire [7:0] MouseDyRaw;
     wire SendInterrupt;
+    wire [3:0] MasterStateCode;
     MouseMasterSM MSM (
         // Standard Inputs
         .CLK(CLK),
@@ -139,12 +140,13 @@ module MouseTransceiver (
         .MOUSE_STATUS(MouseStatusRaw),
         .MOUSE_DX(MouseDxRaw),
         .MOUSE_DY(MouseDyRaw),
-        .SEND_INTERRUPT(SendInterrupt)
+        .SEND_INTERRUPT(SendInterrupt),
+        .MasterStateCode(MasterStateCode)
     );
 
 
-    reg [1:0] segSelIn;
-    reg [3:0] dotBinIn;
+// 7 Segment Display
+    wire [4:0] dotBinIn;
     wire [3:0] segSelOut;
     wire [7:0] hexOut;
 
@@ -179,10 +181,10 @@ module MouseTransceiver (
 
     Mux4bit5 Multiplexer (
         .CONTROL(ctr_strobe),
-        .IN0({1'b1, MouseDyRaw[3:0]}),
-        .IN1({1'b1, MouseDyRaw[7:4]}),
-        .IN2({1'b0, MouseDxRaw[3:0]}),
-        .IN3({1'b1, MouseDxRaw[7:4]}),
+        .IN0({1'b0, MouseDyRaw[3:0]}),
+        .IN1({1'b0, MouseDyRaw[7:4]}),
+        .IN2({1'b1, MouseDxRaw[3:0]}),
+        .IN3({1'b0, MouseDxRaw[7:4]}),
         .OUT(dotBinIn)
     );
 
@@ -193,10 +195,25 @@ module MouseTransceiver (
         .SEG_SELECT_OUT(segSelOut),
         .HEX_OUT(hexOut)
     );
+// 7 Segment Display
 
 
     assign DISP_SEL_OUT = segSelOut;
     assign DISP_OUT = hexOut;
+
+
+    ila_1 your_instance_name (
+        .clk(CLK), // input wire clk
+    
+    
+        .probe0(RESET), // input wire [0:0]  probe0  
+        .probe1(CLK_MOUSE), // input wire [0:0]  probe1 
+        .probe2(DATA_MOUSE), // input wire [0:0]  probe2 
+        .probe3(ByteErrorCode), // input wire [1:0]  probe3 
+        .probe4(MasterStateCode), // input wire [3:0]  probe4 
+        .probe5(ByteToSendToMouse), // input wire [7:0]  probe5 
+        .probe6(ByteRead) // input wire [7:0]  probe6
+    );
 
 endmodule
 
