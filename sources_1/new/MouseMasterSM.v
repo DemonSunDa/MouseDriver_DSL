@@ -36,6 +36,7 @@ module MouseMasterSM (
     // Data Registers
     output [7:0] MOUSE_DX,
     output [7:0] MOUSE_DY,
+    output [7:0] MOUSE_DZ,
     output [7:0] MOUSE_STATUS,
     output SEND_INTERRUPT,
     // Internal signal
@@ -68,8 +69,8 @@ module MouseMasterSM (
 
 
     // State control
-    reg [3:0] curr_state;
-    reg [3:0] next_state;
+    reg [5:0] curr_state;
+    reg [5:0] next_state;
     reg [23:0] curr_ctr;
     reg [23:0] next_ctr;
 
@@ -90,8 +91,12 @@ module MouseMasterSM (
     reg [7:0] next_DX;
     reg [7:0] curr_DY;
     reg [7:0] next_DY;
-    reg [7:0] curr_sendInterrupt;
-    reg [7:0] next_sendInterrupt;
+    reg [7:0] curr_DZ;
+    reg [7:0] next_DZ;
+    reg curr_sendInterrupt;
+    reg next_sendInterrupt;
+    reg curr_intelliMode;
+    reg next_intelliMode;
 
 
     // Sequential
@@ -100,12 +105,14 @@ module MouseMasterSM (
             curr_state <= 4'h0;
             curr_ctr <= 0;
             curr_sendByte <= 1'b0;
-            curr_byteToSend <= 8'h00;
+            curr_byteToSend <= 8'hFF;
             curr_readEnable <= 1'b0;
             curr_status <= 8'h00;
             curr_DX <= 8'h00;
             curr_DY <= 8'h00;
+            curr_DZ <= 8'h00;
             curr_sendInterrupt <= 1'b0;
+            curr_intelliMode <= 1'b0;
         end
         else begin
             curr_state <= next_state;
@@ -116,7 +123,9 @@ module MouseMasterSM (
             curr_status <= next_status;
             curr_DX <= next_DX;
             curr_DY <= next_DY;
+            curr_DZ <= next_DZ;
             curr_sendInterrupt <= next_sendInterrupt;
+            curr_intelliMode <= next_intelliMode;
         end
     end
 
@@ -132,156 +141,308 @@ module MouseMasterSM (
         next_DX = curr_DX;
         next_DY = curr_DY;
         next_sendInterrupt = 1'b0;
+        next_intelliMode = curr_intelliMode;
 
         case (curr_state)
         // Setup sequence
-            4'b0000 : begin // wait for 10ms before initialisation
-                if (curr_ctr == 1000000) begin
-                    next_state = 4'b0001;
+            6'b000000 : begin // wait for 10ms before initialisation
+                if (curr_ctr == 5000000) begin
+                    next_state = 6'b000001;
                     next_ctr = 0;
                 end
                 else begin
                     next_ctr = curr_ctr + 1;
-                    next_ctr = curr_state;
                 end
+                next_intelliMode = 1'b0;
             end
-            4'b0001 : begin // SU1
-                next_state = 4'b0010;
+        // state 1 to 3 form a typical send byte sequence
+            6'b000001 : begin // SU1
+                next_state = 6'b000010;
                 next_sendByte = 1'b1;
                 next_byteToSend = 8'hFF;
             end
-            4'b0010 : begin // wait for confirmation of byte being sent
+            6'b000010 : begin // wait for confirmation of byte being sent
                 if (BYTE_SENT) begin
-                    next_state = 4'b0011;
-                end
-                else begin
-                    next_state = curr_state;
+                    next_state = 6'b000011;
                 end
             end
-            4'b0011 : begin // SU2
+            6'b000011 : begin // SU2
                 if (BYTE_READY) begin
                     if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                        next_state = 4'b0100;
+                        next_state = 6'b000100;
                     end
                     else begin
-                        next_state = 4'b0000;
+                        next_state = 6'b000000;
                     end
-                    next_readEnable = 1'b1;
                 end
-                else begin
-                    next_state = curr_state;
-                    next_readEnable = 1'b0;
-                end
+                next_readEnable = 1'b1;
             end
-            4'b0100 : begin // SU3
+
+            6'b000100 : begin // SU3
                 if (BYTE_READY) begin
                     if ((BYTE_READ == 8'hAA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                        next_state = 4'b0101;
+                        next_state = 6'b000101;
                     end
                     else begin
-                        next_state = 4'b0000;
+                        next_state = 6'b000000;
                     end
-                    next_readEnable = 1'b1;
                 end
-                else begin
-                    next_state = curr_state;
-                    next_readEnable = 1'b0;
-                end
+                next_readEnable = 1'b1;
             end
-            4'b0101 : begin // SU4
+            6'b000101 : begin // SU4
                 if (BYTE_READY) begin
                     if ((BYTE_READ == 8'h00) & (BYTE_ERROR_CODE == 2'b00)) begin
-                        next_state = 4'b0110;
+                        next_state = 6'b000110;
                     end
                     else begin
-                        next_state = 4'b0000;
+                        next_state = 6'b000000;
                     end
-                    next_readEnable = 1'b1;
                 end
-                else begin
-                    next_state = curr_state;
-                    next_readEnable = 1'b0;
-                end
+                next_readEnable = 1'b1;
             end
-            4'b0110 : begin // SU5
-                next_state = 4'b0111;
+
+            6'b000110 : begin // SU5
+                next_state = 6'b000111;
                 next_sendByte = 1'b1;
                 next_byteToSend = 8'hF4;
             end
-            4'b0111 : begin // wait for confirmation of byte being sent
+            6'b000111 : begin // wait for confirmation of byte being sent
                 if (BYTE_SENT) begin
-                    next_state = 4'b1000;
-                end
-                else begin
-                    next_state = curr_state;
+                    next_state = 6'b001000;
                 end
             end
-            4'b1000 : begin // SU6
+            6'b001000 : begin // SU6
                 if (BYTE_READY) begin
-                    if ((BYTE_READ == 8'hF4) & (BYTE_ERROR_CODE == 2'b00)) begin
-                        next_state = 4'b1001;
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6'b001001;
                     end
                     else begin
-                        next_state = 4'b0000;
+                        next_state = 6'b000000;
                     end
-                    next_readEnable = 1'b1;
                 end
-                else begin
-                    next_state = curr_state;
-                    next_readEnable = 1'b0;
-                end
+                next_readEnable = 1'b1;
             end
         
+        // Enable scroll
+            6'b001001 : begin
+                next_state = 6'b001010;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hF3;
+            end
+            6'b001010 : begin
+                if (BYTE_SENT) begin
+                    next_state = 6'b001011;
+                end
+            end
+            6'b001011 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6'b001100;
+                    end
+                    else begin
+                        next_state = 6'b000000;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+            6'b001100 : begin // Send sample rate change to 200
+                next_state = 6'b001101;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hC8;
+            end
+            6'b001101 : begin
+                if (BYTE_SENT) begin
+                    next_state = 6'b001110;
+                end
+            end
+            6'b001110 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6'b001111;
+                    end
+                    else begin
+                        next_state = 6'b000000;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+            6'b001111 : begin // send sample rate change request
+                next_state = 6'b010000;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hF3;
+            end
+            6'b010000 : begin
+                if (BYTE_SENT) begin
+                    next_state = 6'b010001;
+                end
+            end
+            6'b010001 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6'b010010;
+                    end
+                    else begin
+                        next_state = 6'b000000;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+            6'b010010 : begin // send sample rate value 100
+                next_state = 6'b010011;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'h64;
+            end
+            6'b010011 : begin
+                if (BYTE_SENT) begin
+                    next_state = 6'b010100;
+                end
+            end
+            6'b010100 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6'b010101;
+                    end
+                    else begin
+                        next_state = 6'b000000;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+            6'b010101 : begin // send sample rate change request
+                next_state = 6'b010110;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hF3;
+            end
+            6'b010110 : begin
+                if (BYTE_SENT) begin
+                    next_state = 6'b010111;
+                end
+            end
+            6'b010111 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6'b011000;
+                    end
+                    else begin
+                        next_state = 6'b000000;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+            6'b011000 : begin // send sample rate value 80
+                next_state = 6'b011001;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'h50;
+            end
+            6'b011001 : begin
+                if (BYTE_SENT) begin
+                    next_state = 6'b011010;
+                end
+            end
+            6'b011010 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6'b011011;
+                    end
+                    else begin
+                        next_state = 6'b000000;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+            6'b011011 : begin // send ID request
+                next_state = 6'b011100;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hF2;
+            end
+            6'b011100 : begin
+                if (BYTE_SENT) begin
+                    next_state = 6'b011101;
+                end
+            end
+            6'b011101 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6'b011110;
+                    end
+                    else begin
+                        next_state = 6'b000000;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+            6'b011110 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'h03) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6'b011111;
+                        next_intelliMode = 1'b1;
+                    end
+                    else if ((BYTE_READ == 8'h00) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6'b011111;
+                        next_intelliMode = 1'b0;
+                    end
+                    else begin
+                        next_state = 6'b000000;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+            
+
         // Reading
-            4'b1001 : begin
+            6'b011111 : begin
                 if (BYTE_READY & (BYTE_ERROR_CODE == 2'b00)) begin
-                    next_state = 4'b1010;
+                    next_state = 6'b100000;
                     next_status = BYTE_READ;
-
-                    next_ctr = curr_ctr;
-                    next_readEnable = curr_readEnable;
                 end
                 else begin
-                    next_state = 4'b0000;
-                    next_ctr = 0;
-                    next_readEnable = 1'b1;
-
-                    next_status = curr_status;
+                    next_state = 6'b000000;
                 end
+                next_readEnable = 1'b1;
             end
-            4'b1010 : begin
+            6'b100000 : begin
                 if (BYTE_READY & (BYTE_ERROR_CODE == 2'b00)) begin
-                    next_state = 4'b1011;
+                    next_state = 6'b100001;
                     next_DX = BYTE_READ;
-
-                    next_ctr = curr_ctr;
-                    next_readEnable = curr_readEnable;
                 end
                 else begin
-                    next_state = 4'b0000;
-                    next_ctr = 0;
-                    next_readEnable = 1'b1;
-
-                    next_status = curr_status;
+                    next_state = 6'b000000;
                 end
+                next_readEnable = 1'b1;
             end
-            4'b1011 : begin
+            6'b100001 : begin
                 if (BYTE_READY & (BYTE_ERROR_CODE == 2'b00)) begin
-                    next_state = 4'b1100;
+                    if (curr_intelliMode) begin // whether to wait for the fourth byte
+                        next_state = 6'b100010;
+                    end
+                    else begin
+                        next_state = 6'b100011;
+                    end
                     next_DY = BYTE_READ;
-
-                    next_ctr = curr_ctr;
-                    next_readEnable = curr_readEnable;
                 end
                 else begin
                     next_state = 4'b0000;
-                    next_ctr = 0;
-                    next_readEnable = 1'b1;
-
-                    next_status = curr_status;
                 end
+                next_readEnable = 1'b1;
             end
-            4'b1100 : begin
+            6'b100010 : begin // fourth byte
+                if (BYTE_READY & (BYTE_ERROR_CODE == 2'b00)) begin
+                    next_state = 6'b100011;
+                    next_DZ = BYTE_READ;
+                end
+                else begin
+                    next_state = 6'b000000;
+                end
+                next_readEnable = 1'b1;
+            end
+            6'b100011 : begin
                 next_state = 4'b1001;
                 next_sendInterrupt = 1'b1;
             end
@@ -295,6 +456,7 @@ module MouseMasterSM (
                 next_DX = 8'h00;
                 next_DY = 8'h00;
                 next_sendInterrupt = 1'b0;
+                next_intelliMode = 1'b0;
             end
         endcase
     end
@@ -310,6 +472,7 @@ module MouseMasterSM (
     // Output mouse data
     assign MOUSE_DX = curr_DX;
     assign MOUSE_DY = curr_DY;
+    assign MOUSE_DZ = curr_DZ;
     assign MOUSE_STATUS = curr_status;
     assign SEND_INTERRUPT = curr_sendInterrupt;
     assign MasterStateCode = curr_state;

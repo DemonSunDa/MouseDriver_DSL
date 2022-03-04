@@ -101,8 +101,8 @@ module MouseTransmitter (
                 next_MSDataOutWE = 1'b0;
             end
             4'b0001 : begin // bring CLK low for at least 100us
-                if (curr_sendCtr == 11000) begin
-                    next_state = 4'b0001;
+                if (curr_sendCtr == 6000) begin
+                    next_state = 4'b00010;
                     next_sendCtr = 0;
                 end
                 else begin
@@ -138,26 +138,30 @@ module MouseTransmitter (
                 next_MSDataOut = ~^curr_byteToSend[7:0];
             end
             4'b0110 : begin // end bit
-                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & DATA_MOUSE_IN) begin
+                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
                     next_state = 4'b0111;
                 end
+                next_MSDataOut = 1'b1;
             end
             4'b0111 : begin // release data line
                 next_state = 4'b0111;
                 next_MSDataOutWE = 1'b0;
             end
             4'b1000 : begin // wait device to set data line low
-                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & ~DATA_MOUSE_IN) begin
+                if (~DATA_MOUSE_IN) begin
                     next_state = 4'b1000;
                 end
             end
             4'b1001 : begin // wait device to set clock line low
-                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & ~CLK_MOUSE_IN) begin
+                if (~CLK_MOUSE_IN) begin
                     next_state = 4'b1001;
                 end
             end
             4'b1010 : begin // wait device to release data line and clock line
-                next_state = 4'b0000;
+                if (DATA_MOUSE_IN & CLK_MOUSE_IN) begin
+                    next_state = 4'b000;
+                    next_byteSent = 1'b1;
+                end
             end
             default : begin
                 next_state = 4'b0000;
@@ -166,7 +170,7 @@ module MouseTransmitter (
                 next_MSDataOutWE = 1'b0;
                 next_sendCtr = 0;
                 next_byteSent = 1'b0;
-                next_byteToSend = 0;
+                next_byteToSend = 8'h00;
             end
         endcase
     end

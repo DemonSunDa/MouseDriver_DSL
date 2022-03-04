@@ -19,6 +19,9 @@ set_property PACKAGE_PIN B17 [get_ports DATA_MOUSE]
 # PS/2
 
 # display
+set_property PACKAGE_PIN R2 [get_ports SWITCH]
+    set_property IOSTANDARD LVCMOS33 [get_ports SWITCH]
+
 set_property PACKAGE_PIN U2 [get_ports {DISP_SEL_OUT[0]}]
     set_property IOSTANDARD LVCMOS33 [get_ports {DISP_SEL_OUT[0]}]
 

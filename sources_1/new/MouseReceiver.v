@@ -35,6 +35,8 @@ module MouseReceiver (
 );
 
 
+    parameter T_TIMEOUT = 50000;
+
     reg CLK_MOUSE_SYNC; // sync mouse clock
     always @(posedge CLK) begin
         CLK_MOUSE_SYNC <= CLK_MOUSE_IN;
@@ -93,7 +95,7 @@ module MouseReceiver (
                 next_bitCtr = 0;
             end
             3'b001 : begin
-                if (curr_timeoutCtr == 100000) begin // 1ms timeout
+                if (curr_timeoutCtr == T_TIMEOUT) begin // 1ms timeout
                     next_state = 3'b000;
                 end
                 else if (curr_bitCtr == 8) begin
@@ -108,7 +110,7 @@ module MouseReceiver (
                 end
             end
             3'b010 : begin
-                if (curr_timeoutCtr == 100000) begin
+                if (curr_timeoutCtr == T_TIMEOUT) begin
                     next_state = 3'b000;
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
@@ -121,27 +123,22 @@ module MouseReceiver (
                 end
             end
             3'b011 : begin
-                if (curr_timeoutCtr == 100000) begin
+                if (curr_timeoutCtr == T_TIMEOUT) begin
                     next_state = 3'b000;
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
-                    if (DATA_MOUSE_IN) begin
+                    if (~DATA_MOUSE_IN) begin
                         next_MSStatus[1] = 1'b1;
                     end
-                    next_bitCtr = 0;
-                    next_state = 3'b100;
-                    next_timeoutCtr = 0;
                 end
+                next_bitCtr = 0;
+                next_state = 3'b100;
+                next_timeoutCtr = 0;
             end
             3'b100 : begin
-                if (curr_timeoutCtr == 100000) begin
-                    next_state = 3'b000;
-                end
-                else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & DATA_MOUSE_IN) begin
-                    next_byteReceived = 1'b1;
-                    next_state = 3'b000;
-                    next_timeoutCtr = 0;
-                end
+                next_byteReceived = 1'b1;
+                next_state = 3'b000;
+                next_timeoutCtr = 0;
             end
             default: begin
                 next_state = 3'b000;

@@ -31,7 +31,7 @@ module MouseTransceiver (
     // output [3:0] MouseStatus,
     // output [7:0] MouseX,
     // output [7:0] MouseY
-
+    input SWITCH,
     output [3:0] DISP_SEL_OUT,
     output [7:0] DISP_OUT
 );
@@ -40,6 +40,7 @@ module MouseTransceiver (
     // X, Y limits of mouse position. For VGA screen 160 * 120
     parameter [7:0] MouseLimitX = 160;
     parameter [7:0] MouseLimitY = 120;
+    parameter [7:0] MouseLimitZ = 255;
 
 
     // Tri-state signals
@@ -121,6 +122,7 @@ module MouseTransceiver (
     wire [7:0] MouseStatusRaw;
     wire [7:0] MouseDxRaw;
     wire [7:0] MouseDyRaw;
+    wire [7:0] MouseDzRaw;
     wire SendInterrupt;
     wire [3:0] MasterStateCode;
     MouseMasterSM MSM (
@@ -140,9 +142,111 @@ module MouseTransceiver (
         .MOUSE_STATUS(MouseStatusRaw),
         .MOUSE_DX(MouseDxRaw),
         .MOUSE_DY(MouseDyRaw),
+        .MOUSE_DZ(MouseDzRaw),
         .SEND_INTERRUPT(SendInterrupt),
         .MasterStateCode(MasterStateCode)
     );
+
+
+// Pre-processing - handling of overflow and signs.
+// More importantly, this keeps tabs on the actual X/Y
+// location of the mouse.
+    wire signed [8:0] MouseDx;
+    wire signed [8:0] MouseDy;
+    wire signed [8:0] MouseNewX;
+    wire signed [8:0] MouseNewY;
+    wire signed [8:0] MouseDz;
+    wire signed [8:0] MouseNewZ;
+    reg [3:0] MouseStatus;
+    reg [7:0] MouseX;
+    reg [7:0] MouseY;
+    reg [7:0] MouseZ;
+
+    // DX and DY are modified to take account of overflow and direction
+    assign MouseDx = (MouseStatusRaw[6]) ? (MouseStatusRaw[4] ? {MouseStatusRaw[4],8'h00} : {MouseStatusRaw[4],8'hFF} ) : {MouseStatusRaw[4],MouseDxRaw[7:0]};
+    assign MouseDy = (MouseStatusRaw[7]) ? (MouseStatusRaw[5] ? {MouseStatusRaw[5],8'h00} : {MouseStatusRaw[5],8'hFF} ) : {MouseStatusRaw[5],MouseDyRaw[7:0]};
+    assign MouseDz = {MouseDzRaw[7], MouseDzRaw[7:0]};
+
+    always @(posedge CLK or posedge RESET) begin
+        if (RESET) begin
+            MouseStatus <= 0;
+            MouseX <= MouseLimitX / 2;
+            MouseY <= MouseLimitY / 2;
+            MouseZ <= MouseLimitZ / 2;
+        end
+        else if (SendInterrupt) begin
+            MouseStatus <= MouseStatusRaw[3:0];
+
+            // X is modified based on DX with limits on max and min
+            if (MouseNewX < 0) begin
+                MouseX <= 0;
+            end
+            else if (MouseNewX > (MouseLimitX - 1)) begin
+                MouseX <= MouseLimitX - 1;
+            end
+            else begin
+                MouseX <= MouseNewX[7:0];
+            end
+
+            // Y is modified based on DY with limits on max and min
+            if (MouseNewY < 0) begin
+                MouseY <= 0;
+            end
+            else if (MouseNewY > (MouseLimitY - 1)) begin
+                MouseY <= MouseLimitY - 1;
+            end
+            else begin
+                MouseY <= MouseNewY[7:0];
+            end
+
+            //Z is modified based on DZ with limits on max and min
+            if (MouseNewZ < 0) begin
+                MouseZ <= 0;
+            end
+            else if (MouseNewZ > (MouseLimitZ - 1)) begin
+                MouseZ <= MouseLimitZ - 1;
+            end
+            else begin
+                MouseZ <= MouseNewZ[7:0];
+            end
+        end
+    end
+
+    assign MouseNewX = {1'b0, MouseX} + MouseDx;
+    assign MouseNewY = {1'b0, MouseY} + MouseDy;
+    assign MouseNewZ = {1'b0, MouseZ} + MouseDz;
+
+// Pre-processing
+
+
+// Display Select
+    reg [4:0] dispIN0;
+    reg [4:0] dispIN1;
+    reg [4:0] dispIN2;
+    reg [4:0] dispIN3;
+    always @(posedge CLK or posedge RESET) begin
+        if (RESET) begin
+            dispIN0 <= 11000;
+            dispIN1 <= 11000;
+            dispIN2 <= 11000;
+            dispIN3 <= 11000;
+        end
+        else begin
+            if (SWITCH) begin
+                dispIN0 <= MouseZ[7:4];
+                dispIN1 <= MouseZ[3:0];
+                dispIN2 <= MouseStatusRaw[7:4];
+                dispIN3 <= MouseStatusRaw[3:0];
+            end
+            else begin
+                dispIN0 <= MouseY[7:4];
+                dispIN1 <= MouseY[3:0];
+                dispIN2 <= MouseX[7:4];
+                dispIN3 <= MouseX[3:0];
+            end
+        end
+    end
+// Display Select
 
 
 // 7 Segment Display
@@ -181,10 +285,10 @@ module MouseTransceiver (
 
     Mux4bit5 Multiplexer (
         .CONTROL(ctr_strobe),
-        .IN0({1'b0, MouseDyRaw[3:0]}),
-        .IN1({1'b0, MouseDyRaw[7:4]}),
-        .IN2({1'b1, MouseDxRaw[3:0]}),
-        .IN3({1'b0, MouseDxRaw[7:4]}),
+        .IN0({1'b0, dispIN0}),
+        .IN1({1'b0, dispIN1}),
+        .IN2({1'b1, dispIN2}),
+        .IN3({1'b0, dispIN3}),
         .OUT(dotBinIn)
     );
 
@@ -202,18 +306,18 @@ module MouseTransceiver (
     assign DISP_OUT = hexOut;
 
 
-    ila_1 your_instance_name (
-        .clk(CLK), // input wire clk
+    // ila_1 your_instance_name (
+    //     .clk(CLK), // input wire clk
     
     
-        .probe0(RESET), // input wire [0:0]  probe0  
-        .probe1(CLK_MOUSE), // input wire [0:0]  probe1 
-        .probe2(DATA_MOUSE), // input wire [0:0]  probe2 
-        .probe3(ByteErrorCode), // input wire [1:0]  probe3 
-        .probe4(MasterStateCode), // input wire [3:0]  probe4 
-        .probe5(ByteToSendToMouse), // input wire [7:0]  probe5 
-        .probe6(ByteRead) // input wire [7:0]  probe6
-    );
+    //     .probe0(RESET), // input wire [0:0]  probe0  
+    //     .probe1(CLK_MOUSE), // input wire [0:0]  probe1 
+    //     .probe2(DATA_MOUSE), // input wire [0:0]  probe2 
+    //     .probe3(ByteErrorCode), // input wire [1:0]  probe3 
+    //     .probe4(MasterStateCode), // input wire [3:0]  probe4 
+    //     .probe5(ByteToSendToMouse), // input wire [7:0]  probe5 
+    //     .probe6(ByteRead) // input wire [7:0]  probe6
+    // );
 
 endmodule
 
