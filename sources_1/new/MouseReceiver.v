@@ -31,9 +31,11 @@ module MouseReceiver (
     input READ_ENABLE,
     output [7:0] BYTE_READ,
     output [1:0] BYTE_ERROR_CODE,
-    output BYTE_READY
+    output BYTE_READY,
+    output [2:0] MSReceiverState
 );
 
+    parameter T_TIMEOUT = 100000; // 1ms timeout
 
     reg CLK_MOUSE_SYNC; // sync mouse clock
     always @(posedge CLK) begin
@@ -90,15 +92,13 @@ module MouseReceiver (
                     next_state = 3'b001;
                     next_MSStatus = 2'b00;
                 end
-                next_bitCtr = 0;
             end
             3'b001 : begin
-                if (curr_timeoutCtr == 100000) begin // 1ms timeout
+                if (curr_timeoutCtr == T_TIMEOUT) begin
                     next_state = 3'b000;
                 end
                 else if (curr_bitCtr == 8) begin
                     next_state = 3'b010;
-                    next_bitCtr = 0;
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
                     next_MSShiftReg[6:0] = curr_MSShiftReg[7:1];
@@ -108,33 +108,31 @@ module MouseReceiver (
                 end
             end
             3'b010 : begin
-                if (curr_timeoutCtr == 100000) begin
+                if (curr_timeoutCtr == T_TIMEOUT) begin
                     next_state = 3'b000;
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
                     if (DATA_MOUSE_IN != (~^curr_MSShiftReg[7:0])) begin // parity bit error
                         next_MSStatus[0] = 1'b1;
                     end
-                    next_bitCtr = 0;
                     next_state = 3'b011;
                     next_timeoutCtr = 0;
                 end
             end
             3'b011 : begin
-                if (curr_timeoutCtr == 100000) begin
+                if (curr_timeoutCtr == T_TIMEOUT) begin
                     next_state = 3'b000;
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
                     if (DATA_MOUSE_IN) begin
                         next_MSStatus[1] = 1'b1;
                     end
-                    next_bitCtr = 0;
                     next_state = 3'b100;
                     next_timeoutCtr = 0;
                 end
             end
             3'b100 : begin
-                if (curr_timeoutCtr == 100000) begin
+                if (curr_timeoutCtr == T_TIMEOUT) begin
                     next_state = 3'b000;
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & DATA_MOUSE_IN) begin
@@ -158,5 +156,7 @@ module MouseReceiver (
     assign BYTE_READY = curr_byteReceived;
     assign BYTE_READ = curr_MSShiftReg;
     assign BYTE_ERROR_CODE = curr_MSStatus;
+
+    assign MSReceiverState = curr_state;
 
 endmodule

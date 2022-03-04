@@ -33,7 +33,8 @@ module MouseTransmitter (
     // Control
     input SEND_BYTE,
     input [7:0] BYTE_TO_SEND,
-    output BYTE_SENT
+    output BYTE_SENT,
+    output [3:0] MSTransmitterState
 );
 
 
@@ -101,8 +102,8 @@ module MouseTransmitter (
                 next_MSDataOutWE = 1'b0;
             end
             4'b0001 : begin // bring CLK low for at least 100us
-                if (curr_sendCtr == 11000) begin
-                    next_state = 4'b0001;
+                if (curr_sendCtr == 10000) begin
+                    next_state = 4'b0010;
                     next_sendCtr = 0;
                 end
                 else begin
@@ -137,27 +138,31 @@ module MouseTransmitter (
                 end
                 next_MSDataOut = ~^curr_byteToSend[7:0];
             end
-            4'b0110 : begin // end bit
-                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & DATA_MOUSE_IN) begin
+            4'b0110 : begin // stop bit
+                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
                     next_state = 4'b0111;
                 end
+                next_MSDataOut = 1'b1;
             end
             4'b0111 : begin // release data line
-                next_state = 4'b0111;
+                next_state = 4'b1000;
                 next_MSDataOutWE = 1'b0;
             end
             4'b1000 : begin // wait device to set data line low
-                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & ~DATA_MOUSE_IN) begin
-                    next_state = 4'b1000;
-                end
-            end
-            4'b1001 : begin // wait device to set clock line low
-                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN & ~CLK_MOUSE_IN) begin
+                if (~DATA_MOUSE_IN) begin
                     next_state = 4'b1001;
                 end
             end
+            4'b1001 : begin // wait device to set clock line low
+                if (~CLK_MOUSE_IN) begin
+                    next_state = 4'b1010;
+                end
+            end
             4'b1010 : begin // wait device to release data line and clock line
-                next_state = 4'b0000;
+                if (CLK_MOUSE_IN & DATA_MOUSE_IN) begin
+                    next_state = 4'b0000;
+                    next_byteSent = 1'b1;
+                end
             end
             default : begin
                 next_state = 4'b0000;
@@ -176,5 +181,7 @@ module MouseTransmitter (
     assign DATA_MOUSE_OUT_EN = curr_MSDataOutWE;
 
     assign BYTE_SENT = curr_byteSent;
+
+    assign MSTransmitterState = curr_state;
 
 endmodule

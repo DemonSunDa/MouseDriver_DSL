@@ -31,7 +31,7 @@ module MouseTransceiver (
     // output [3:0] MouseStatus,
     // output [7:0] MouseX,
     // output [7:0] MouseY
-
+    input SWITCH,
     output [3:0] DISP_SEL_OUT,
     output [7:0] DISP_OUT
 );
@@ -82,6 +82,7 @@ module MouseTransceiver (
     wire SendByteToMouse;
     wire ByteSentToMouse;
     wire [7:0] ByteToSendToMouse;
+    wire [3:0] MSTransmitterState;
     MouseTransmitter T (
         // Standard Inputs
         .CLK(CLK),
@@ -95,7 +96,9 @@ module MouseTransceiver (
         // Control
         .SEND_BYTE(SendByteToMouse),
         .BYTE_TO_SEND(ByteToSendToMouse),
-        .BYTE_SENT(ByteSentToMouse)
+        .BYTE_SENT(ByteSentToMouse),
+
+        .MSTransmitterState(MSTransmitterState)
     );
 
 
@@ -103,6 +106,7 @@ module MouseTransceiver (
     wire [7:0] ByteRead;
     wire [1:0] ByteErrorCode;
     wire ByteReady;
+    wire [2:0] MSReceiverState;
     MouseReceiver R (
         // Standard Inputs
         .CLK(CLK),
@@ -114,7 +118,9 @@ module MouseTransceiver (
         .READ_ENABLE(ReadEnable),
         .BYTE_READ(ByteRead),
         .BYTE_ERROR_CODE(ByteErrorCode),
-        .BYTE_READY(ByteReady)
+        .BYTE_READY(ByteReady),
+
+        .MSReceiverState(MSReceiverState)
     );
 
 
@@ -143,6 +149,36 @@ module MouseTransceiver (
         .SEND_INTERRUPT(SendInterrupt),
         .MasterStateCode(MasterStateCode)
     );
+
+
+// Display Select
+    reg [4:0] dispIN0;
+    reg [4:0] dispIN1;
+    reg [4:0] dispIN2;
+    reg [4:0] dispIN3;
+    always @(posedge CLK or posedge RESET) begin
+        if (RESET) begin
+            dispIN0 <= 11000;
+            dispIN1 <= 11000;
+            dispIN2 <= 11000;
+            dispIN3 <= 11000;
+        end
+        else begin
+            if (SWITCH) begin
+                dispIN0 <= {3'b000, MouseStatusRaw[1:0]};
+                dispIN1 <= {3'b000, MouseStatusRaw[3:2]};
+                dispIN2 <= {4'b1000, MouseStatusRaw[6]};
+                dispIN3 <= {4'b0000, MouseStatusRaw[7]};
+            end
+            else begin
+                dispIN0 <= {1'b0, MouseDyRaw[3:0]};
+                dispIN1 <= {1'b0, MouseDyRaw[7:4]};
+                dispIN2 <= {1'b1, MouseDxRaw[3:0]};
+                dispIN3 <= {1'b0, MouseDxRaw[7:4]};
+            end
+        end
+    end
+// Display Select
 
 
 // 7 Segment Display
@@ -181,10 +217,10 @@ module MouseTransceiver (
 
     Mux4bit5 Multiplexer (
         .CONTROL(ctr_strobe),
-        .IN0({1'b0, MouseDyRaw[3:0]}),
-        .IN1({1'b0, MouseDyRaw[7:4]}),
-        .IN2({1'b1, MouseDxRaw[3:0]}),
-        .IN3({1'b0, MouseDxRaw[7:4]}),
+        .IN0(dispIN0),
+        .IN1(dispIN1),
+        .IN2(dispIN2),
+        .IN3(dispIN3),
         .OUT(dotBinIn)
     );
 
@@ -202,18 +238,21 @@ module MouseTransceiver (
     assign DISP_OUT = hexOut;
 
 
-    ila_1 your_instance_name (
+// Debugger
+    ila_0 ILADebugger (
         .clk(CLK), // input wire clk
     
     
         .probe0(RESET), // input wire [0:0]  probe0  
         .probe1(CLK_MOUSE), // input wire [0:0]  probe1 
         .probe2(DATA_MOUSE), // input wire [0:0]  probe2 
-        .probe3(ByteErrorCode), // input wire [1:0]  probe3 
+        //.probe3(ByteErrorCode), // input wire [1:0]  probe3 
+        .probe3(MSReceiverState), // input wire [2:0]  probe3 
         .probe4(MasterStateCode), // input wire [3:0]  probe4 
         .probe5(ByteToSendToMouse), // input wire [7:0]  probe5 
         .probe6(ByteRead) // input wire [7:0]  probe6
     );
+// Debugger
 
 endmodule
 

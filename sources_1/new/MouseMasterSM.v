@@ -142,7 +142,6 @@ module MouseMasterSM (
                 end
                 else begin
                     next_ctr = curr_ctr + 1;
-                    next_ctr = curr_state;
                 end
             end
             4'b0001 : begin // SU1
@@ -153,9 +152,7 @@ module MouseMasterSM (
             4'b0010 : begin // wait for confirmation of byte being sent
                 if (BYTE_SENT) begin
                     next_state = 4'b0011;
-                end
-                else begin
-                    next_state = curr_state;
+                    next_readEnable = 1'b1;
                 end
             end
             4'b0011 : begin // SU2
@@ -166,12 +163,8 @@ module MouseMasterSM (
                     else begin
                         next_state = 4'b0000;
                     end
-                    next_readEnable = 1'b1;
                 end
-                else begin
-                    next_state = curr_state;
-                    next_readEnable = 1'b0;
-                end
+                next_readEnable = 1'b1;
             end
             4'b0100 : begin // SU3
                 if (BYTE_READY) begin
@@ -181,12 +174,8 @@ module MouseMasterSM (
                     else begin
                         next_state = 4'b0000;
                     end
-                    next_readEnable = 1'b1;
                 end
-                else begin
-                    next_state = curr_state;
-                    next_readEnable = 1'b0;
-                end
+                next_readEnable = 1'b1;
             end
             4'b0101 : begin // SU4
                 if (BYTE_READY) begin
@@ -196,12 +185,8 @@ module MouseMasterSM (
                     else begin
                         next_state = 4'b0000;
                     end
-                    next_readEnable = 1'b1;
                 end
-                else begin
-                    next_state = curr_state;
-                    next_readEnable = 1'b0;
-                end
+                next_readEnable = 1'b1;
             end
             4'b0110 : begin // SU5
                 next_state = 4'b0111;
@@ -212,23 +197,16 @@ module MouseMasterSM (
                 if (BYTE_SENT) begin
                     next_state = 4'b1000;
                 end
-                else begin
-                    next_state = curr_state;
-                end
             end
             4'b1000 : begin // SU6
                 if (BYTE_READY) begin
-                    if ((BYTE_READ == 8'hF4) & (BYTE_ERROR_CODE == 2'b00)) begin
+                    if (BYTE_READ == 8'hF4) begin // parity check skipped
                         next_state = 4'b1001;
                     end
                     else begin
                         next_state = 4'b0000;
                     end
                     next_readEnable = 1'b1;
-                end
-                else begin
-                    next_state = curr_state;
-                    next_readEnable = 1'b0;
                 end
             end
         
