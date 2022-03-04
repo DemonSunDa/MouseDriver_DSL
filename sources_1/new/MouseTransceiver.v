@@ -167,6 +167,10 @@ module MouseTransceiver (
     assign MouseDy = (MouseStatusRaw[7]) ? (MouseStatusRaw[5] ? {MouseStatusRaw[5],8'h00} : {MouseStatusRaw[5],8'hFF} ) : {MouseStatusRaw[5],MouseDyRaw[7:0]};
     assign MouseDz = {MouseDzRaw[7], MouseDzRaw[7:0]};
 
+    assign MouseNewX = {1'b0, MouseX} + MouseDx;
+    assign MouseNewY = {1'b0, MouseY} + MouseDy;
+    assign MouseNewZ = {1'b0, MouseZ} + MouseDz;
+
     always @(posedge CLK or posedge RESET) begin
         if (RESET) begin
             MouseStatus <= 0;
@@ -211,11 +215,6 @@ module MouseTransceiver (
             end
         end
     end
-
-    assign MouseNewX = {1'b0, MouseX} + MouseDx;
-    assign MouseNewY = {1'b0, MouseY} + MouseDy;
-    assign MouseNewZ = {1'b0, MouseZ} + MouseDz;
-
 // Pre-processing
 
 
@@ -233,16 +232,16 @@ module MouseTransceiver (
         end
         else begin
             if (SWITCH) begin
-                dispIN0 <= MouseZ[7:4];
-                dispIN1 <= MouseZ[3:0];
+                dispIN0 <= MouseDzRaw[7:4];
+                dispIN1 <= MouseDzRaw[3:0];
                 dispIN2 <= MouseStatusRaw[7:4];
                 dispIN3 <= MouseStatusRaw[3:0];
             end
             else begin
-                dispIN0 <= MouseY[7:4];
-                dispIN1 <= MouseY[3:0];
-                dispIN2 <= MouseX[7:4];
-                dispIN3 <= MouseX[3:0];
+                dispIN0 <= MouseDyRaw[7:4];
+                dispIN1 <= MouseDyRaw[3:0];
+                dispIN2 <= MouseDxRaw[7:4];
+                dispIN3 <= MouseDxRaw[3:0];
             end
         end
     end
