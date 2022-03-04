@@ -40,7 +40,7 @@ module MouseTransceiver (
     // X, Y limits of mouse position. For VGA screen 160 * 120
     parameter [7:0] MouseLimitX = 160;
     parameter [7:0] MouseLimitY = 120;
-    parameter [7:0] MouseLimitZ = 255;
+    parameter [7:0] MouseLimitZ = 256;
 
 
     // Tri-state signals
@@ -232,16 +232,16 @@ module MouseTransceiver (
         end
         else begin
             if (SWITCH) begin
-                dispIN0 <= MouseDzRaw[7:4];
-                dispIN1 <= MouseDzRaw[3:0];
-                dispIN2 <= MouseStatusRaw[7:4];
-                dispIN3 <= MouseStatusRaw[3:0];
+                dispIN0 <= {3'b000, MouseStatusRaw[1]};
+                dispIN1 <= {3'b000, MouseStatusRaw[0]};
+                dispIN2 <= MouseZ[3:0];
+                dispIN3 <= MouseZ[7:4];
             end
             else begin
-                dispIN0 <= MouseDyRaw[7:4];
-                dispIN1 <= MouseDyRaw[3:0];
-                dispIN2 <= MouseDxRaw[7:4];
-                dispIN3 <= MouseDxRaw[3:0];
+                dispIN0 <= MouseY[3:0];
+                dispIN1 <= MouseY[7:4];
+                dispIN2 <= MouseX[3:0];
+                dispIN3 <= MouseX[7:4];
             end
         end
     end

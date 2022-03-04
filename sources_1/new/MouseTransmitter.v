@@ -5,18 +5,18 @@
 // 
 // Create Date: 25.02.2022 00:16:01
 // Design Name: 
-// Module Name: MouseTransmitter
+// Module Name: MouseTransmitter 
 // Project Name: 
 // Target Devices: 
 // Tool Versions: 
 // Description: 
-// 
+//
 // Dependencies: 
-// 
-// Revision:
+//
+// Revision: 
 // Revision 0.01 - File Created
 // Additional Comments:
-// 
+//
 //////////////////////////////////////////////////////////////////////////////////
 
 
@@ -36,149 +36,176 @@ module MouseTransmitter (
     output BYTE_SENT
 );
 
+    //////////////////////////////////////////////////////////
+    // Clk Mouse delayed to detect clock edges
+    reg ClkMouseInDly;
+    always@(posedge CLK)
+        ClkMouseInDly <= CLK_MOUSE_IN;
+        
+    //////////////////////////////////////////////////////////
+    //Now a state machine to control the flow of write data
+    reg [3:0] 	Curr_State, Next_State;
+    reg 			Curr_MouseClkOutWE, Next_MouseClkOutWE;
+    reg 			Curr_MouseDataOut, Next_MouseDataOut;
+    reg 			Curr_MouseDataOutWE, Next_MouseDataOutWE;
+    reg [15:0] 	Curr_SendCounter, Next_SendCounter;
+    reg 			Curr_ByteSent, Next_ByteSent;
+    reg [7:0] 	Curr_ByteToSend, Next_ByteToSend;
 
-    reg CLK_MOUSE_SYNC;
-    always @(posedge CLK) begin
-        CLK_MOUSE_SYNC <= CLK_MOUSE_IN;
-    end
-
-
-    reg [3:0] curr_state;
-    reg [3:0] next_state;
-    reg curr_MSClkOutWE;
-    reg next_MSClkOutWE;
-    reg curr_MSDataOut;
-    reg next_MSDataOut;
-    reg curr_MSDataOutWE;
-    reg next_MSDataOutWE;
-    reg [15:0] curr_sendCtr;
-    reg [15:0] next_sendCtr;
-    reg curr_byteSent;
-    reg next_byteSent;
-    reg [7:0] curr_byteToSend;
-    reg [7:0] next_byteToSend;
-
-
-    // Sequential
-    always @(posedge CLK or posedge RESET) begin
-        if (RESET) begin
-            curr_state <= 4'b0000;
-            curr_MSClkOutWE <= 1'b0;
-            curr_MSDataOut <= 1'b0;
-            curr_MSDataOutWE <= 1'b0;
-            curr_sendCtr <= 0;
-            curr_byteSent <= 1'b0;
-            curr_byteToSend <= 0;
+    //Sequential
+    always@(posedge CLK)
+        begin
+            if(RESET) 
+                begin
+                    Curr_State 					<= 0;
+                    Curr_MouseClkOutWE 		<= 1'b0;
+                    Curr_MouseDataOut 		<= 1'b0;
+                    Curr_MouseDataOutWE 		<= 1'b0;
+                    Curr_SendCounter 			<= 0;
+                    Curr_ByteSent 				<= 1'b0;
+                    Curr_ByteToSend 			<= 0;
+                end
+            else
+                begin
+                    Curr_State 					<= Next_State;
+                    Curr_MouseClkOutWE 		<= Next_MouseClkOutWE;
+                    Curr_MouseDataOut 		<= Next_MouseDataOut;
+                    Curr_MouseDataOutWE 		<= Next_MouseDataOutWE;
+                    Curr_SendCounter 			<= Next_SendCounter;
+                    Curr_ByteSent 				<= Next_ByteSent;
+                    Curr_ByteToSend 			<= Next_ByteToSend;
+                end
         end
-        else begin
-            curr_state <= next_state;
-            curr_MSClkOutWE <= next_MSClkOutWE;
-            curr_MSDataOut <= next_MSDataOut;
-            curr_MSDataOutWE <= next_MSDataOutWE;
-            curr_sendCtr <= next_sendCtr;
-            curr_byteSent <= next_byteSent;
-            curr_byteToSend <= next_byteToSend;
+
+    //Combinatorial
+    always@* 
+        begin
+            //default values
+            Next_State 				= Curr_State;
+            Next_MouseClkOutWE 	= 1'b0;
+            Next_MouseDataOut 	= 1'b0;
+            Next_MouseDataOutWE 	= Curr_MouseDataOutWE;
+            Next_SendCounter 		= Curr_SendCounter;
+            Next_ByteSent 			= 1'b0;
+            Next_ByteToSend 		= Curr_ByteToSend;
+            
+            case(Curr_State)
+                //IDLE
+                0: 
+                    begin
+                        if(SEND_BYTE) 
+                            begin
+                                Next_State 				= 1;
+                                Next_ByteToSend 		= BYTE_TO_SEND;
+                            end
+                        Next_MouseDataOutWE 		= 1'b0;
+                    end
+                //Bring Clock line low for at least 100 microsecs i.e. 5000 clock cycles @ 50MHz
+                1: 
+                    begin
+                            if(Curr_SendCounter == 6000)
+                                begin
+                                    Next_State 			= 2;
+                                    Next_SendCounter 	= 0;
+                                end
+                            else
+                                Next_SendCounter 	= Curr_SendCounter + 1'b1;
+                                
+                            Next_MouseClkOutWE 	= 1'b1;
+                    end
+                //Bring the Data Line Low and release the Clock line
+                2: 
+                    begin
+                        Next_State 					= 3;
+                        Next_MouseDataOutWE 		= 1'b1;
+                    end
+                //Start Sending
+                3: 
+                    begin // change data at falling edge of clock, start bit = 0
+                        if(ClkMouseInDly & ~CLK_MOUSE_IN)
+                            Next_State 				= 4;
+                    end
+                //Send Bits 0 to 7 - We need to send the byte
+                4: 
+                    begin // change data at falling edge of clock
+                        if(ClkMouseInDly & ~CLK_MOUSE_IN) 
+                            begin
+                                if(Curr_SendCounter == 7) 
+                                    begin
+                                        Next_State 			= 5;
+                                        Next_SendCounter 	= 0;
+                                    end 
+                                else
+                                    Next_SendCounter 		= Curr_SendCounter + 1'b1;
+                        end
+                        
+                        Next_MouseDataOut 		= Curr_ByteToSend[Curr_SendCounter];
+                    end
+                //Send the parity bit
+                5:
+                    begin // change data at falling edge of clock
+                        if(ClkMouseInDly & ~CLK_MOUSE_IN)
+                            Next_State 				= 6;
+                            
+                        Next_MouseDataOut 		= ~^Curr_ByteToSend[7:0];
+                    end
+                //Send the stop bit... this state was forgotten in the original partial code
+                6: 
+                    begin 
+                        if(ClkMouseInDly & ~CLK_MOUSE_IN)
+                            Next_State 				= 7;
+                            
+                        Next_MouseDataOut 		= 1'b1;
+                    end
+                //Release Data line
+                7: 
+                    begin
+                        Next_State 					= 8;
+                        Next_MouseDataOutWE 		= 1'b0;
+                    end
+                /*
+                Wait for Device to bring Data line low, then wait for Device to bring Clock line low, and finally wait for
+                Device to release both Data and Clock.
+                */
+                /*
+                ������������..
+                FILL IN THIS AREA
+                ������������.
+                */
+                8: 
+                    begin
+                        if(!DATA_MOUSE_IN)								// returns to S7 if data line not pulled low by mouse
+                            Next_State 			= 9;
+                    end
+                    
+                9: 
+                    begin
+                        if(!CLK_MOUSE_IN)									// returns to S8 if CLK not pulled low by mouse
+                            Next_State 			= 10;
+                    end
+                    
+                10: 
+                    begin
+                        if(DATA_MOUSE_IN & CLK_MOUSE_IN)				// returns to S9 if data line not released (let rise high) by mouse
+                            begin
+                                Next_State 		= 0;					// returns to S9 if CLK not released (let rise high) by mouse
+                                Next_ByteSent 	= 1'b1;					// confirms byte was sent out
+                            end
+                    end				
+            endcase
         end
-    end
 
+    ///////////////////////////////////////////////////////////////
+    //Assign OUTPUTs
+    //Mouse IO - CLK
+    assign CLK_MOUSE_OUT_EN 			= Curr_MouseClkOutWE;
 
-    // Combinational
-    always @(*) begin
-        next_state = curr_state;
-        next_MSClkOutWE = 1'b0;
-        next_MSDataOut = 1'b0;
-        next_MSDataOutWE = curr_MSDataOutWE;
-        next_sendCtr = curr_sendCtr;
-        next_byteSent = 1'b0;
-        next_byteToSend = curr_byteToSend;
+    //Mouse IO - DATA
+    assign DATA_MOUSE_OUT 				= Curr_MouseDataOut;
+    assign DATA_MOUSE_OUT_EN 			= Curr_MouseDataOutWE;
 
-        case (curr_state)
-            4'b0000 : begin
-                if (SEND_BYTE) begin
-                    next_state = 4'b0001;
-                    next_byteToSend = BYTE_TO_SEND;
-                end
-                next_MSDataOutWE = 1'b0;
-            end
-            4'b0001 : begin // bring CLK low for at least 100us
-                if (curr_sendCtr == 6000) begin
-                    next_state = 4'b00010;
-                    next_sendCtr = 0;
-                end
-                else begin
-                    next_sendCtr = curr_sendCtr + 1;
-                end
-                next_MSClkOutWE = 1'b1;
-            end
-            4'b0010 : begin // bring data line low and release CLK
-                next_state = 4'b0011;
-                next_MSDataOutWE = 1'b1;
-            end
-            4'b0011 : begin // start sending
-                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
-                    next_state = 4'b0100;
-                end
-            end
-            4'b0100 : begin // send byte
-                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
-                    if (curr_sendCtr == 7) begin
-                        next_state = 4'b0101;
-                        next_sendCtr = 0;
-                    end
-                    else begin
-                        next_sendCtr = curr_sendCtr + 1;
-                    end
-                end
-                next_MSDataOut = curr_byteToSend[curr_sendCtr];
-            end
-            4'b0101 : begin // send parity bit
-                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
-                    next_state = 4'b0110;
-                end
-                next_MSDataOut = ~^curr_byteToSend[7:0];
-            end
-            4'b0110 : begin // end bit
-                if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
-                    next_state = 4'b0111;
-                end
-                next_MSDataOut = 1'b1;
-            end
-            4'b0111 : begin // release data line
-                next_state = 4'b1000;
-                next_MSDataOutWE = 1'b0;
-            end
-            4'b1000 : begin // wait device to set data line low
-                if (~DATA_MOUSE_IN) begin
-                    next_state = 4'b1001;
-                end
-            end
-            4'b1001 : begin // wait device to set clock line low
-                if (~CLK_MOUSE_IN) begin
-                    next_state = 4'b1010;
-                end
-            end
-            4'b1010 : begin // wait device to release data line and clock line
-                if (DATA_MOUSE_IN & CLK_MOUSE_IN) begin
-                    next_state = 4'b000;
-                    next_byteSent = 1'b1;
-                end
-            end
-            default : begin
-                next_state = 4'b0000;
-                next_MSClkOutWE = 1'b0;
-                next_MSDataOut = 1'b0;
-                next_MSDataOutWE = 1'b0;
-                next_sendCtr = 0;
-                next_byteSent = 1'b0;
-                next_byteToSend = 8'h00;
-            end
-        endcase
-    end
+    //Control
+    assign BYTE_SENT 						= Curr_ByteSent;
 
-    assign CLK_MOUSE_OUT_EN = curr_MSClkOutWE;
-    assign DATA_MOUSE_OUT = curr_MSDataOut;
-    assign DATA_MOUSE_OUT_EN = curr_MSDataOutWE;
-
-    assign BYTE_SENT = curr_byteSent;
 
 endmodule
