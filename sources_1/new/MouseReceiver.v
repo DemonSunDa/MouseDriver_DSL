@@ -53,23 +53,23 @@ module MouseReceiver (
 
     // Sequential
     always @(posedge CLK or posedge RESET) begin
-            if (RESET) begin
-                curr_state <= 0;
-                curr_MSShiftReg <= 8'h00;
-                curr_bitCtr <= 0;
-                curr_byteReceived <= 1'b0;
-                curr_MSStatus <= 2'b00;
-                curr_timeoutCtr <= 0;
-            end
-            else begin
-                curr_state <= next_state;
-                curr_MSShiftReg <= next_MSShiftReg;
-                curr_bitCtr <= next_bitCtr;
-                curr_byteReceived <= next_byteReceived;
-                curr_MSStatus <= next_MSStatus;
-                curr_timeoutCtr <= next_timeoutCtr;
-            end
+        if (RESET) begin
+            curr_state <= 0;
+            curr_MSShiftReg <= 8'h00;
+            curr_bitCtr <= 0;
+            curr_byteReceived <= 1'b0;
+            curr_MSStatus <= 2'b00;
+            curr_timeoutCtr <= 0;
         end
+        else begin
+            curr_state <= next_state;
+            curr_MSShiftReg <= next_MSShiftReg;
+            curr_bitCtr <= next_bitCtr;
+            curr_byteReceived <= next_byteReceived;
+            curr_MSStatus <= next_MSStatus;
+            curr_timeoutCtr <= next_timeoutCtr;
+        end
+    end
 
     // Combinational
     always @(*) begin

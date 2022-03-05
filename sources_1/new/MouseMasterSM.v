@@ -87,33 +87,33 @@ module MouseMasterSM (
 
     // Sequential
     always @(posedge CLK or posedge RESET) begin
-            if (RESET) begin
-                curr_state <= 4'h0;
-                curr_ctr <= 0;
-                curr_sendByte <= 1'b0;
-                curr_byteToSend <= 8'h00;
-                curr_readEnable <= 1'b0;
-                curr_status <= 8'h00;
-                curr_DX <= 8'h00;
-                curr_DY <= 8'h00;
-                curr_DZ <= 8'h00;
-                curr_sendInterrupt <= 1'b0;
-                curr_intelliMode <= 1'b0;
-            end
-            else begin
-                curr_state <= next_state;
-                curr_ctr <= next_ctr;
-                curr_sendByte <= next_sendByte;
-                curr_byteToSend <= next_byteToSend;
-                curr_readEnable <= next_readEnable;
-                curr_status <= next_status;
-                curr_DX <= next_DX;
-                curr_DY <= next_DY;
-                curr_DZ <= next_DZ;
-                curr_sendInterrupt <= next_sendInterrupt;
-                curr_intelliMode <= next_intelliMode;
-            end
+        if (RESET) begin
+            curr_state <= 4'h0;
+            curr_ctr <= 0;
+            curr_sendByte <= 1'b0;
+            curr_byteToSend <= 8'h00;
+            curr_readEnable <= 1'b0;
+            curr_status <= 8'h00;
+            curr_DX <= 8'h00;
+            curr_DY <= 8'h00;
+            curr_DZ <= 8'h00;
+            curr_sendInterrupt <= 1'b0;
+            curr_intelliMode <= 1'b0;
         end
+        else begin
+            curr_state <= next_state;
+            curr_ctr <= next_ctr;
+            curr_sendByte <= next_sendByte;
+            curr_byteToSend <= next_byteToSend;
+            curr_readEnable <= next_readEnable;
+            curr_status <= next_status;
+            curr_DX <= next_DX;
+            curr_DY <= next_DY;
+            curr_DZ <= next_DZ;
+            curr_sendInterrupt <= next_sendInterrupt;
+            curr_intelliMode <= next_intelliMode;
+        end
+    end
 
 
     // Combinational
@@ -145,9 +145,9 @@ module MouseMasterSM (
 
         // Start initialisation by sending FF
             1 : begin
-                    next_state = 2;
-                    next_sendByte = 1'b1;
-                    next_byteToSend = 8'hFF;
+                next_state = 2;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hFF;
             end
             // Wait for confirmation of the byte being sent
             2 : begin
@@ -159,13 +159,13 @@ module MouseMasterSM (
             // If the byte is FA goto next state, else re-initialise.
             3 : begin // SU2
                 if (BYTE_READY) begin
-                        if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 4;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 4;
                     end
+                    else begin
+                        next_state = 0;
+                    end
+                end
                 next_readEnable = 1'b1;
             end
 
@@ -269,9 +269,9 @@ module MouseMasterSM (
 
         // Set sample rate
             15 : begin
-                    next_state = 16;
-                    next_sendByte = 1'b1;
-                    next_byteToSend = 8'hF3;
+                next_state = 16;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hF3;
             end
             16 : begin
                 if (BYTE_SENT) begin
@@ -315,9 +315,9 @@ module MouseMasterSM (
 
         // Set sample rate
             21 : begin
-                    next_state = 22;
-                    next_sendByte = 1'b1;
-                    next_byteToSend = 8'hF3;
+                next_state = 22;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hF3;
             end
             22 : begin
                 if (BYTE_SENT) begin
@@ -372,13 +372,13 @@ module MouseMasterSM (
             end
             29 : begin
                 if (BYTE_READY) begin
-                        if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 30;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 30;
                     end
+                    else begin
+                        next_state = 0;
+                    end
+                end
                 next_readEnable = 1'b1;
             end
 
@@ -405,8 +405,8 @@ module MouseMasterSM (
             31 : begin
                 if (BYTE_READY) begin
                     if (BYTE_ERROR_CODE == 2'b00) begin
-                            next_state = 32;
-                            next_status = BYTE_READ;	
+                        next_state = 32;
+                        next_status = BYTE_READ;
                     end
                     else begin
                         next_state = 0;
@@ -444,17 +444,17 @@ module MouseMasterSM (
                 next_readEnable = 1'b1;
             end
             34 : begin // fourth byte
-                    if (BYTE_READY) begin
-                        if (BYTE_ERROR_CODE == 2'b00) begin
-                            next_state = 35;
-                            next_DZ = BYTE_READ;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
+                if (BYTE_READY) begin
+                    if (BYTE_ERROR_CODE == 2'b00) begin
+                        next_state = 35;
+                        next_DZ = BYTE_READ;
                     end
-                    next_readEnable = 1'b1;
+                    else begin
+                        next_state = 0;
+                    end
                 end
+                next_readEnable = 1'b1;
+            end
             35 : begin
                 next_state = 31;
                 next_sendInterrupt = 1'b1;
