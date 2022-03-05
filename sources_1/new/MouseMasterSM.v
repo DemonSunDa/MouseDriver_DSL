@@ -118,286 +118,336 @@ module MouseMasterSM (
 
     // Combinational
     always @(*) begin
-            next_state = curr_state;
-            next_ctr = curr_ctr;
-            next_sendByte = 1'b0;
-            next_byteToSend = curr_byteToSend;
-            next_readEnable = 1'b0;
-            next_status = curr_status;
-            next_DX = curr_DX;
-            next_DY = curr_DY;
-            next_DZ = curr_DZ;
-            next_sendInterrupt = 1'b0;
-            next_intelliMode = curr_intelliMode;
-            
-            case (curr_state)
-            // Initialise State - Wait here for 10ms before trying to initialise the mouse.
-                0 : begin
-                    if (curr_ctr == 5000000) begin
-                        next_state = 1;
-                        next_ctr = 0;
-                    end 
-                    else begin
-                        next_ctr = curr_ctr + 1;
-                    end
-                    next_intelliMode = 1'b0;
+        next_state = curr_state;
+        next_ctr = curr_ctr;
+        next_sendByte = 1'b0;
+        next_byteToSend = curr_byteToSend;
+        next_readEnable = 1'b0;
+        next_status = curr_status;
+        next_DX = curr_DX;
+        next_DY = curr_DY;
+        next_DZ = curr_DZ;
+        next_sendInterrupt = 1'b0;
+        next_intelliMode = curr_intelliMode;
+        
+        case (curr_state)
+        // Initialise State - Wait here for 10ms before trying to initialise the mouse.
+            0 : begin
+                if (curr_ctr == 5000000) begin
+                    next_state = 1;
+                    next_ctr = 0;
+                end 
+                else begin
+                    next_ctr = curr_ctr + 1;
                 end
-            // Start initialisation by sending FF
-                1 : begin
-                        next_state = 2;
-                        next_sendByte = 1'b1;
-                        next_byteToSend = 8'hFF;
-                end
+                next_intelliMode = 1'b0;
+            end
+
+        // Start initialisation by sending FF
+            1 : begin
+                    next_state = 2;
+                    next_sendByte = 1'b1;
+                    next_byteToSend = 8'hFF;
+            end
             // Wait for confirmation of the byte being sent
-                2 : begin
-                    if (BYTE_SENT) begin
-                        next_state = 3;
-                    end
+            2 : begin
+                if (BYTE_SENT) begin
+                    next_state = 3;
                 end
+            end
             // Wait for confirmation of a byte being received
             // If the byte is FA goto next state, else re-initialise.
-                3 : begin // SU2
-                    if (BYTE_READY) begin
-                            if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                                next_state = 4;
-                            end
-                            else begin
-                                next_state = 0;
-                            end
-                        end
-                    next_readEnable = 1'b1;
-                end
-            // Wait for self-test pass confirmation
-            // If the byte received is AA goto next state, else re-initialise
-                4 : begin // SU3
-                    if (BYTE_READY) begin
-                        if ((BYTE_READ == 8'hAA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 5;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
-                    end
-                    next_readEnable = 1'b1;
-                end
-            // Wait for confirmation of a byte being received
-            // If the byte is 00 goto next state (MOUSE ID) else re-initialise
-                5 : begin // SU4
-                    if (BYTE_READY) begin
-                        if ((BYTE_READ == 8'h00) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 6;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
-                    end
-                    next_readEnable = 1'b1;
-                end
-            // Send F4 - to start mouse transmit
-                6 : begin // SU5
-                    next_state = 7;
-                    next_sendByte = 1'b1;
-                    next_byteToSend = 8'hF4;
-                end
-            // Wait for confirmation of the byte being sent
-                7 : begin
-                    if (BYTE_SENT) begin
-                        next_state = 8;
-                    end
-                end
-            // Wait for confirmation of a byte being received
-            // If the byte is FA goto next state, else re-initialise
-                8 : begin // SU6
-                    if (BYTE_READY) begin
+            3 : begin // SU2
+                if (BYTE_READY) begin
                         if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 9;
+                            next_state = 4;
                         end
                         else begin
                             next_state = 0;
                         end
                     end
-                    next_readEnable = 1'b1;
-                end
+                next_readEnable = 1'b1;
+            end
 
-            // Enable scroll
-                9 : begin
-                    next_state = 10;
+        // Wait for self-test pass confirmation
+            // If the byte received is AA goto next state, else re-initialise
+            4 : begin // SU3
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hAA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 5;
+                    end
+                    else begin
+                        next_state = 0;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+        // Wait for confirmation of a byte being received
+            // If the byte is 00 goto next state (MOUSE ID) else re-initialise
+            5 : begin // SU4
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'h00) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 6;
+                    end
+                    else begin
+                        next_state = 0;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+        // Send F4 - to start mouse transmit
+            6 : begin // SU5
+                next_state = 7;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hF4;
+            end
+            7 : begin
+                if (BYTE_SENT) begin
+                    next_state = 8;
+                end
+            end
+            8 : begin // SU6
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 9;
+                    end
+                    else begin
+                        next_state = 0;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+        // Enable intellimouse mode by sending set sample rate command with 200, 100 and 80
+        // Set sample rate
+            9 : begin
+                next_state = 10;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hF3;
+            end
+            10 : begin
+                if (BYTE_SENT) begin
+                    next_state = 11;
+                end
+            end
+            11 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 12;
+                    end
+                    else begin
+                        next_state = 0;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+        // Sample rate value 200
+            12 : begin
+                next_state = 13;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hC8;
+            end
+            13 : begin
+                if (BYTE_SENT) begin
+                    next_state = 14;
+                end
+            end
+            14 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 15;
+                    end
+                    else begin
+                        next_state = 0;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+        // Set sample rate
+            15 : begin
+                    next_state = 16;
                     next_sendByte = 1'b1;
                     next_byteToSend = 8'hF3;
+            end
+            16 : begin
+                if (BYTE_SENT) begin
+                    next_state = 17;
                 end
-                10 : begin
-                    if (BYTE_SENT) begin
-                        next_state = 11;
+            end
+            17 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 18;
+                    end
+                    else begin
+                        next_state = 0;
                     end
                 end
-                11 : begin
-                    if (BYTE_READY) begin
-                        if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 12;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
-                    end
-                    next_readEnable = 1'b1;
-                end
+                next_readEnable = 1'b1;
+            end
 
-                12 : begin // Send sample rate change to 200
-                    next_state = 13;
+        // Sample rate vaue 100
+            18 : begin
+                next_state = 19;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'h64;
+            end
+            19 : begin
+                if (BYTE_SENT) begin
+                    next_state = 20;
+                end
+            end
+            20 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 21;
+                    end
+                    else begin
+                        next_state = 0;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+        // Set sample rate
+            21 : begin
+                    next_state = 22;
                     next_sendByte = 1'b1;
-                    next_byteToSend = 8'hC8;
+                    next_byteToSend = 8'hF3;
+            end
+            22 : begin
+                if (BYTE_SENT) begin
+                    next_state = 23;
                 end
-                13 : begin
-                    if (BYTE_SENT) begin
-                        next_state = 14;
+            end
+            23 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 24;
+                    end
+                    else begin
+                        next_state = 0;
                     end
                 end
-                14 : begin
-                    if (BYTE_READY) begin
+                next_readEnable = 1'b1;
+            end
+
+        // Sample rate value 80
+            24 : begin
+                next_state = 25;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'h50;
+            end
+            25 : begin
+                if (BYTE_SENT) begin
+                    next_state = 26;
+                end
+            end
+            26 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 27;
+                    end
+                    else begin
+                        next_state = 0;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+
+        // Request ID
+            27 : begin
+                next_state = 28;
+                next_sendByte = 1'b1;
+                next_byteToSend = 8'hF2;
+            end
+            28 : begin
+                if (BYTE_SENT) begin
+                    next_state = 29;
+                end
+            end
+            29 : begin
+                if (BYTE_READY) begin
                         if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 15;
+                            next_state = 30;
                         end
                         else begin
                             next_state = 0;
                         end
                     end
-                    next_readEnable = 1'b1;
-                end
+                next_readEnable = 1'b1;
+            end
 
-                15 : begin // send sample rate change request
-                        next_state = 16;
-                        next_sendByte = 1'b1;
-                        next_byteToSend = 8'hF3;
-                end
-                16 : begin
-                    if (BYTE_SENT) begin
-                        next_state = 17;
+        // Read ID
+            30 : begin
+                if (BYTE_READY) begin
+                    if ((BYTE_READ == 8'h03) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 31;
+                        next_intelliMode = 1'b1;
+                    end	
+                    else if ((BYTE_READ == 8'h00) & (BYTE_ERROR_CODE == 2'b00)) begin
+                        next_state = 31;
+                        next_intelliMode = 1'b0;
+                    end
+                    else begin
+                        next_state = 0;
                     end
                 end
-                17 : begin
-                    if (BYTE_READY) begin
-                        if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 18;
+                next_readEnable = 1'b1;
+            end
+
+
+        // Reading
+            31 : begin
+                if (BYTE_READY) begin
+                    if (BYTE_ERROR_CODE == 2'b00) begin
+                            next_state = 32;
+                            next_status = BYTE_READ;	
+                    end
+                    else begin
+                        next_state = 0;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+            32 : begin
+                if (BYTE_READY) begin
+                    if (BYTE_ERROR_CODE == 2'b00) begin
+                        next_state = 33;
+                        next_DX = BYTE_READ;
+                    end
+                    else begin
+                        next_state = 0;
+                    end
+                end
+                next_readEnable = 1'b1;
+            end
+            33 : begin
+                if (BYTE_READY) begin
+                    if (BYTE_ERROR_CODE == 2'b00) begin
+                        if (curr_intelliMode) begin // whether to wait for the fourth byte
+                            next_state = 34;
                         end
                         else begin
-                            next_state = 0;
+                            next_state = 35;
                         end
+                        next_DY = BYTE_READ;
                     end
-                    next_readEnable = 1'b1;
-                end
-
-                18 : begin // send sample rate value 100
-                    next_state = 19;
-                    next_sendByte = 1'b1;
-                    next_byteToSend = 8'h64;
-                end
-                19 : begin
-                    if (BYTE_SENT) begin
-                        next_state = 20;
+                    else begin
+                        next_state = 0;
                     end
                 end
-                20 : begin
-                    if (BYTE_READY) begin
-                        if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 21;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
-                    end
-                    next_readEnable = 1'b1;
-                end
-
-                21 : begin // send sample rate change request
-                        next_state = 22;
-                        next_sendByte = 1'b1;
-                        next_byteToSend = 8'hF3;
-                end
-                22 : begin
-                    if (BYTE_SENT) begin
-                        next_state = 23;
-                    end
-                end
-                23 : begin
-                    if (BYTE_READY) begin
-                        if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 24;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
-                    end
-                    next_readEnable = 1'b1;
-                end
-
-                24 : begin // send sample rate value 80
-                    next_state = 25;
-                    next_sendByte = 1'b1;
-                    next_byteToSend = 8'h50;
-                end
-                25 : begin
-                    if (BYTE_SENT) begin
-                        next_state = 26;
-                    end
-                end
-                26 : begin
-                    if (BYTE_READY) begin
-                        if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 27;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
-                    end
-                    next_readEnable = 1'b1;
-                end
-
-                27 : begin // send ID request
-                    next_state = 28;
-                    next_sendByte = 1'b1;
-                    next_byteToSend = 8'hF2;
-                end
-                28 : begin
-                    if (BYTE_SENT) begin
-                        next_state = 29;
-                    end
-                end
-                29 : begin
-                    if (BYTE_READY) begin
-                            if ((BYTE_READ == 8'hFA) & (BYTE_ERROR_CODE == 2'b00)) begin
-                                next_state = 30;
-                            end
-                            else begin
-                                next_state = 0;
-                            end
-                        end
-                    next_readEnable = 1'b1;
-                end
-
-                30 : begin
-                    if (BYTE_READY) begin
-                        if ((BYTE_READ == 8'h03) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 31;
-                            next_intelliMode = 1'b1;
-                        end	
-                        else if ((BYTE_READ == 8'h00) & (BYTE_ERROR_CODE == 2'b00)) begin
-                            next_state = 31;
-                            next_intelliMode = 1'b0;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
-                    end
-                    next_readEnable = 1'b1;
-                end
-
-
-            // Reading
-                31 : begin
+                next_readEnable = 1'b1;
+            end
+            34 : begin // fourth byte
                     if (BYTE_READY) begin
                         if (BYTE_ERROR_CODE == 2'b00) begin
-                                next_state = 32;
-                                next_status = BYTE_READ;	
+                            next_state = 35;
+                            next_DZ = BYTE_READ;
                         end
                         else begin
                             next_state = 0;
@@ -405,65 +455,24 @@ module MouseMasterSM (
                     end
                     next_readEnable = 1'b1;
                 end
-                32 : begin
-                    if (BYTE_READY) begin
-                        if (BYTE_ERROR_CODE == 2'b00) begin
-                            next_state = 33;
-                            next_DX = BYTE_READ;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
-                    end
-                    next_readEnable = 1'b1;
-                end
-                33 : begin
-                    if (BYTE_READY) begin
-                        if (BYTE_ERROR_CODE == 2'b00) begin
-                            if (curr_intelliMode) begin // whether to wait for the fourth byte
-                                next_state = 34;
-                            end
-                            else begin
-                                next_state = 35;
-                            end
-                            next_DY = BYTE_READ;
-                        end
-                        else begin
-                            next_state = 0;
-                        end
-                    end
-                    next_readEnable 							= 1'b1;
-                end
-                34 : begin // fourth byte
-                        if (BYTE_READY) begin
-                            if (BYTE_ERROR_CODE == 2'b00) begin
-                                next_state = 35;
-                                next_DZ = BYTE_READ;
-                            end
-                            else begin
-                                next_state = 0;
-                            end
-                        end
-                        next_readEnable = 1'b1;
-                    end
-                35 : begin
-                    next_state = 31;
-                    next_sendInterrupt = 1'b1;
-                end
-                default : begin
-                    next_state = 0;
-                    next_ctr = 0;
-                    next_sendByte = 1'b0;
-                    next_byteToSend = 8'hFF;
-                    next_readEnable = 1'b0;
-                    next_status = 8'h00;
-                    next_DX = 8'h00;
-                    next_DY = 8'h00;
-                    next_DZ = 8'h00;
-                    next_sendInterrupt = 1'b0;
-                end
-            endcase
-        end
+            35 : begin
+                next_state = 31;
+                next_sendInterrupt = 1'b1;
+            end
+            default : begin
+                next_state = 0;
+                next_ctr = 0;
+                next_sendByte = 1'b0;
+                next_byteToSend = 8'hFF;
+                next_readEnable = 1'b0;
+                next_status = 8'h00;
+                next_DX = 8'h00;
+                next_DY = 8'h00;
+                next_DZ = 8'h00;
+                next_sendInterrupt = 1'b0;
+            end
+        endcase
+    end
 
 
     // Transmitter

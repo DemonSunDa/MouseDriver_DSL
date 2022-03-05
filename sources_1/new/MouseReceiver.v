@@ -89,7 +89,7 @@ module MouseReceiver (
                 next_bitCtr = 0;
             end
             1 : begin
-                if (curr_timeoutCtr == 50000) begin // 1ms timeout
+                if (curr_timeoutCtr == T_TIMEOUT) begin // 1ms timeout
                     next_state = 0;
                 end
                 else if(curr_bitCtr == 8) begin
@@ -104,7 +104,7 @@ module MouseReceiver (
                 end
             end
             2 : begin
-                if (curr_timeoutCtr == 50000) begin
+                if (curr_timeoutCtr == T_TIMEOUT) begin
                     next_state = 0;
                 end
                 else if (CLK_MOUSE_SYNC & ~CLK_MOUSE_IN) begin
